@@ -4,8 +4,7 @@
 #include <string>
 #include <functional>
 #include <memory>
-
-class WebSocket;
+#include <vector>
 
 class OpenClawClient {
 public:
@@ -22,19 +21,13 @@ public:
     void OnError(std::function<void(const std::string& error)> callback);
 
 private:
-    std::unique_ptr<WebSocket> websocket_;
-    std::string ws_url_;
+    std::string server_url_;
     std::string token_;
-    std::string session_key_;
     bool connected_;
     std::function<void()> on_connected_;
     std::function<void(const std::string& message)> on_message_received_;
     std::function<void(const std::string& error)> on_error_;
-    std::string GenerateId();
-    void HandleMessage(const char* data, size_t len, bool binary);
-    void SendConnectRequest();
     void SendTestMessages();
-    bool CreateSession();
 };
 
 #endif // OPENCLAW_CLIENT_H
