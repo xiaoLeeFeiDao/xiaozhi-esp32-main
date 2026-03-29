@@ -16,6 +16,7 @@
 #include "audio_service.h"
 #include "device_state.h"
 #include "device_state_machine.h"
+#include "openclaw_client.h"
 
 // Main event bits
 #define MAIN_EVENT_SCHEDULE             (1 << 0)
@@ -135,6 +136,7 @@ private:
     std::string last_error_message_;
     AudioService audio_service_;
     std::unique_ptr<Ota> ota_;
+    std::unique_ptr<OpenClawClient> openclaw_client_;
 
     bool has_server_time_ = false;
     bool aborted_ = false;

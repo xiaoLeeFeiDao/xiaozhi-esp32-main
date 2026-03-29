@@ -9,6 +9,7 @@
 #include "mcp_server.h"
 #include "assets.h"
 #include "settings.h"
+#include "openclaw_client.h"
 
 #include <cstring>
 #include <esp_log.h>
@@ -98,6 +99,18 @@ void Application::Initialize() {
     mcp_server.AddCommonTools();
     mcp_server.AddUserOnlyTools();
 
+    // Initialize OpenClaw client
+    openclaw_client_ = std::make_unique<OpenClawClient>();
+    openclaw_client_->OnConnected([]() {
+        ESP_LOGI("OpenClaw", "OpenClaw client connected successfully");
+    });
+    openclaw_client_->OnMessageReceived([](const std::string& message) {
+        ESP_LOGI("OpenClaw", "Received message: %s", message.c_str());
+    });
+    openclaw_client_->OnError([](const std::string& error) {
+        ESP_LOGE("OpenClaw", "Error: %s", error.c_str());
+    });
+
     // Set network event callback for UI updates and network state handling
     board.SetNetworkEventCallback([this](NetworkEvent event, const std::string& data) {
         auto display = Board::GetInstance().GetDisplay();
@@ -125,10 +138,22 @@ void Application::Initialize() {
                 msg += data;
                 display->ShowNotification(msg.c_str(), 30000);
                 xEventGroupSetBits(event_group_, MAIN_EVENT_NETWORK_CONNECTED);
+                
+                // Start OpenClaw client after network connected
+                if (openclaw_client_) {
+                    ESP_LOGI("OpenClaw", "Starting OpenClaw client...");
+                    openclaw_client_->Start();
+                }
                 break;
             }
             case NetworkEvent::Disconnected:
                 xEventGroupSetBits(event_group_, MAIN_EVENT_NETWORK_DISCONNECTED);
+                
+                // Stop OpenClaw client when network disconnected
+                if (openclaw_client_) {
+                    ESP_LOGI("OpenClaw", "Stopping OpenClaw client...");
+                    openclaw_client_->Stop();
+                }
                 break;
             case NetworkEvent::WifiConfigModeEnter:
                 // WiFi config mode enter is handled by WifiBoard internally
@@ -554,6 +579,12 @@ void Application::InitializeProtocol() {
                 Schedule([display, message = std::string(text->valuestring)]() {
                     display->SetChatMessage("user", message.c_str());
                 });
+                
+                // Send the user's voice text to OpenClaw
+                if (openclaw_client_ && openclaw_client_->IsConnected()) {
+                    ESP_LOGI("OpenClaw", "Sending voice text to OpenClaw: %s", text->valuestring);
+                    openclaw_client_->SendMessage(text->valuestring);
+                }
             }
         } else if (strcmp(type->valuestring, "llm") == 0) {
             auto emotion = cJSON_GetObjectItem(root, "emotion");
