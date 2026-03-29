@@ -28,6 +28,7 @@ private:
     std::function<void(const std::string& message)> on_message_received_;
     std::function<void(const std::string& error)> on_error_;
     void SendTestMessages();
+    void HandleOpenClawResponse(const std::string& response);
 };
 
 #endif // OPENCLAW_CLIENT_H

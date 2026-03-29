@@ -142,6 +142,7 @@ private:
     bool aborted_ = false;
     bool assets_version_checked_ = false;
     bool play_popup_on_listening_ = false;  // Flag to play popup sound after state changes to listening
+    bool openclaw_mode_ = false;  // Flag to indicate OpenClaw control mode
     int clock_ticks_ = 0;
     TaskHandle_t activation_task_handle_ = nullptr;
 

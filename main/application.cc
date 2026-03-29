@@ -575,15 +575,31 @@ void Application::InitializeProtocol() {
         } else if (strcmp(type->valuestring, "stt") == 0) {
             auto text = cJSON_GetObjectItem(root, "text");
             if (cJSON_IsString(text)) {
-                ESP_LOGI(TAG, ">> %s", text->valuestring);
-                Schedule([display, message = std::string(text->valuestring)]() {
+                std::string text_str = text->valuestring;
+                ESP_LOGI(TAG, ">> %s", text_str.c_str());
+                Schedule([display, message = text_str]() {
                     display->SetChatMessage("user", message.c_str());
                 });
                 
-                // Send the user's voice text to OpenClaw
-                if (openclaw_client_ && openclaw_client_->IsConnected()) {
-                    ESP_LOGI("OpenClaw", "Sending voice text to OpenClaw: %s", text->valuestring);
-                    openclaw_client_->SendMessage(text->valuestring);
+                // Check for mode commands
+                if (text_str.find("控制大龙虾") != std::string::npos) {
+                    openclaw_mode_ = true;
+                    ESP_LOGI("OpenClaw", "Entering OpenClaw control mode");
+                    Schedule([display]() {
+                        display->SetChatMessage("system", "已进入大龙虾控制模式");
+                    });
+                } else if (text_str.find("退出大龙虾模式") != std::string::npos) {
+                    openclaw_mode_ = false;
+                    ESP_LOGI("OpenClaw", "Exiting OpenClaw control mode");
+                    Schedule([display]() {
+                        display->SetChatMessage("system", "已退出大龙虾控制模式");
+                    });
+                } else if (openclaw_mode_) {
+                    // Send the user's voice text to OpenClaw in control mode
+                    if (openclaw_client_ && openclaw_client_->IsConnected()) {
+                        ESP_LOGI("OpenClaw", "Sending voice text to OpenClaw: %s", text_str.c_str());
+                        openclaw_client_->SendMessage(text_str);
+                    }
                 }
             }
         } else if (strcmp(type->valuestring, "llm") == 0) {
@@ -592,6 +608,19 @@ void Application::InitializeProtocol() {
                 Schedule([display, emotion_str = std::string(emotion->valuestring)]() {
                     display->SetEmotion(emotion_str.c_str());
                 });
+            }
+        } else if (strcmp(type->valuestring, "tts") == 0) {
+            auto state = cJSON_GetObjectItem(root, "state");
+            if (strcmp(state->valuestring, "sentence_start") == 0) {
+                auto text = cJSON_GetObjectItem(root, "text");
+                if (cJSON_IsString(text)) {
+                    ESP_LOGI(TAG, "<< %s", text->valuestring);
+                    if (!openclaw_mode_) {
+                        Schedule([display, message = std::string(text->valuestring)]() {
+                            display->SetChatMessage("assistant", message.c_str());
+                        });
+                    }
+                }
             }
         } else if (strcmp(type->valuestring, "mcp") == 0) {
             auto payload = cJSON_GetObjectItem(root, "payload");

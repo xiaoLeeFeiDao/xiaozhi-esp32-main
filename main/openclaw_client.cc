@@ -105,6 +105,8 @@ bool OpenClawClient::SendMessage(const std::string& message) {
     ESP_LOGI(TAG, "Message sent successfully");
     if (!response_body.empty()) {
         ESP_LOGI(TAG, "Response: %s", response_body.c_str());
+        // Handle OpenClaw response
+        HandleOpenClawResponse(response_body);
     }
     return true;
 }
@@ -115,6 +117,46 @@ void OpenClawClient::OnConnected(std::function<void()> callback) {
 
 void OpenClawClient::OnMessageReceived(std::function<void(const std::string& message)> callback) {
     on_message_received_ = callback;
+}
+
+void OpenClawClient::HandleOpenClawResponse(const std::string& response) {
+    // Parse the response from OpenClaw
+    cJSON* root = cJSON_Parse(response.c_str());
+    if (root) {
+        cJSON* result = cJSON_GetObjectItem(root, "result");
+        if (result) {
+            cJSON* content = cJSON_GetObjectItem(result, "content");
+            if (cJSON_IsArray(content)) {
+                cJSON* first_item = cJSON_GetArrayItem(content, 0);
+                if (first_item) {
+                    cJSON* text_item = cJSON_GetObjectItem(first_item, "text");
+                    if (cJSON_IsString(text_item)) {
+                        std::string text = text_item->valuestring;
+                        ESP_LOGI(TAG, "OpenClaw response: %s", text.c_str());
+
+                        // Parse the inner JSON
+                        cJSON* inner_root = cJSON_Parse(text.c_str());
+                        if (inner_root) {
+                            cJSON* summary = cJSON_GetObjectItem(inner_root, "summary");
+                            if (cJSON_IsString(summary)) {
+                                std::string summary_text = summary->valuestring;
+                                ESP_LOGI(TAG, "OpenClaw summary: %s", summary_text.c_str());
+
+                                // Display the summary on the device screen
+                                auto& board = Board::GetInstance();
+                                auto display = board.GetDisplay();
+                                if (display) {
+                                    display->SetChatMessage("openclaw", summary_text.c_str());
+                                }
+                            }
+                            cJSON_Delete(inner_root);
+                        }
+                    }
+                }
+            }
+        }
+        cJSON_Delete(root);
+    }
 }
 
 void OpenClawClient::OnError(std::function<void(const std::string& error)> callback) {
