@@ -216,7 +216,14 @@ def process_text_font(text_font_file, assets_dir):
 
 
 def process_emoji_collection(emoji_collection_dir, assets_dir):
-    """Process emoji_collection parameter"""
+    """Process emoji_collection 
+I (36069) Application: Wake word detected: 你好小智
+I (36259) AfeWakeWord: Encode wake word opus 35 packets in 294 ms
+I (36259) StateMachine: State: connecting -> listening
+I (36309) AFE: AFE Version: (1MIC_V251128)
+I (36309) AFE: Input PCM Config: total 1 channels(1 microphone, 0 playback), sample rate:16000
+I (36309) AFE: AFE Pipeline: [input] -> |VAD(WebRTC)| -> [output]
+I (36319) AfeAudioProcessor: Audio communication task staparameter"""
     if not emoji_collection_dir:
         return []
     
@@ -224,6 +231,9 @@ def process_emoji_collection(emoji_collection_dir, assets_dir):
     
     # Check if this is otto-gif collection
     is_otto_gif = 'otto-emoji-gif-component' in emoji_collection_dir or emoji_collection_dir.endswith('otto-gif')
+    
+    # Check if this is custom-gif collection from main/assets/gif
+    is_custom_gif = 'main/assets/gif' in emoji_collection_dir
     
     # Otto GIF emoji aliases mapping
     otto_gif_aliases = {
@@ -233,6 +243,23 @@ def process_emoji_collection(emoji_collection_dir, assets_dir):
         "anger": ["angry"],
         "scare": ["surprised", "shocked"],
         "buxue": ["thinking", "confused", "embarrassed"]
+    }
+    
+    # Custom GIF emoji aliases mapping (based on user's GIF files)
+    custom_gif_aliases = {
+        "neutral": ["neutral"],
+        "idle-joker-face": ["happy", "funny"],
+        "laughing-hearts": ["laughing"],
+        "listen1": ["listening"],
+        "listen2": ["listening2"],
+        "shocked": ["shocked", "surprised"],
+        "weary": ["sad", "tired", "crying"],
+        "touch-head": ["touch_head"],
+        "touch-body": ["touch_body"],
+        "touch-left-ear": ["touch_left_ear"],
+        "touch-right-ear": ["touch_right_ear"],
+        "distance-detect": ["distance_detect"],
+        "restore_factory": ["restore_factory"]
     }
     
     # Copy each image from input directory to build/assets directory
@@ -259,6 +286,16 @@ def process_emoji_collection(emoji_collection_dir, assets_dir):
                                 "name": alias,
                                 "file": file
                             })
+                    
+                    # Add aliases for custom-gif emojis
+                    if is_custom_gif and filename_without_ext in custom_gif_aliases:
+                        for alias in custom_gif_aliases[filename_without_ext]:
+                            # Skip if alias is same as main name
+                            if alias != filename_without_ext:
+                                emoji_list.append({
+                                    "name": alias,
+                                    "file": file
+                                })
     
     return emoji_list
 
@@ -715,6 +752,7 @@ def get_emoji_collection_path(default_emoji_collection, xiaozhi_fonts_path, proj
     - PNG emoji collections from xiaozhi-fonts (e.g., emojis_32, twemoji_64)
     - GIF emoji collections from xiaozhi-fonts (e.g., noto-emoji_128, noto-emoji_64)
     - Otto GIF emoji collection (otto-gif)
+    - Custom GIF emoji collection from main/assets/gif (custom-gif)
     """
     if not default_emoji_collection:
         return None
@@ -731,6 +769,20 @@ def get_emoji_collection_path(default_emoji_collection, xiaozhi_fonts_path, proj
                 return None
         else:
             print("Warning: project_root not provided, cannot locate otto-gif collection")
+            return None
+    
+    # Special handling for custom-gif collection from main/assets/gif
+    if default_emoji_collection == 'custom-gif':
+        if project_root:
+            custom_gif_path = os.path.join(project_root, 'main', 'assets', 'gif')
+            if os.path.exists(custom_gif_path):
+                print(f"Using custom GIF emoji collection from: {custom_gif_path}")
+                return custom_gif_path
+            else:
+                print(f"Warning: Custom GIF emoji collection directory not found: {custom_gif_path}")
+                return None
+        else:
+            print("Warning: project_root not provided, cannot locate custom-gif collection")
             return None
     
     # Try PNG emoji collections first (e.g., emojis_32, twemoji_64)

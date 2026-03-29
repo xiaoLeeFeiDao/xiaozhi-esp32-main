@@ -1,0 +1,58 @@
+[
+    {
+        "emote": "neutral",
+        "src": "neutral.gif"
+    },
+    {
+        "emote": "happy",
+        "src": "idle-joker-face.gif"
+    },
+    {
+        "emote": "laughing",
+        "src": "laughing-hearts.gif"
+    },
+    {
+        "emote": "listening",
+        "src": "listen1.gif"
+    },
+    {
+        "emote": "listening2",
+        "src": "listen2.gif"
+    },
+    {
+        "emote": "shocked",
+        "src": "shocked.gif"
+    },
+    {
+        "emote": "sad",
+        "src": "weary.gif"
+    },
+    {
+        "emote": "tired",
+        "src": "weary.gif"
+    },
+    {
+        "emote": "touch_head",
+        "src": "touch-head.gif"
+    },
+    {
+        "emote": "touch_body",
+        "src": "touch-body.gif"
+    },
+    {
+        "emote": "touch_left_ear",
+        "src": "touch-left-ear.gif"
+    },
+    {
+        "emote": "touch_right_ear",
+        "src": "touch-right-ear.gif"
+    },
+    {
+        "emote": "distance_detect",
+        "src": "distance-detect.gif"
+    },
+    {
+        "emote": "restore_factory",
+        "src": "restore_factory.gif"
+    }
+]
