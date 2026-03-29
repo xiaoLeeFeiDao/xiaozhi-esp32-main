@@ -1,5 +1,6 @@
 #include "openclaw_client.h"
 #include "board.h"
+#include "display.h"
 #include "system_info.h"
 #include "settings.h"
 
@@ -236,6 +237,12 @@ void OpenClawClient::HandleMessage(const char* data, size_t len, bool binary) {
                                 ESP_LOGI(TAG, "🤖 AI: %s", text->valuestring);
                                 if (on_message_received_) {
                                     on_message_received_(text->valuestring);
+                                }
+                                // Display the message on the device screen
+                                auto& board = Board::GetInstance();
+                                auto display = board.GetDisplay();
+                                if (display) {
+                                    display->SetChatMessage("assistant", text->valuestring);
                                 }
                             }
                         }
