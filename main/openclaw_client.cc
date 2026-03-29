@@ -78,8 +78,12 @@ bool OpenClawClient::SendMessage(const std::string& message) {
     }
 
     if (session_key_.empty()) {
-        ESP_LOGE(TAG, "No session key available");
-        return false;
+        ESP_LOGE(TAG, "No session key available, trying to create a new session...");
+        // Try to create a new session
+        if (!CreateSession()) {
+            ESP_LOGE(TAG, "Failed to create new session");
+            return false;
+        }
     }
 
     cJSON* root = cJSON_CreateObject();
@@ -97,6 +101,7 @@ bool OpenClawClient::SendMessage(const std::string& message) {
     cJSON_free(json_str);
     cJSON_Delete(root);
 
+    ESP_LOGI(TAG, "Sending message to OpenClaw: %s", json_message.c_str());
     if (!websocket_->Send(json_message)) {
         ESP_LOGE(TAG, "Failed to send message to OpenClaw server");
         return false;
@@ -141,6 +146,9 @@ void OpenClawClient::HandleMessage(const char* data, size_t len, bool binary) {
         return;
     }
 
+    // Log the received message for debugging
+    ESP_LOGI(TAG, "Received message: %s", cJSON_PrintUnformatted(root));
+
     auto event = cJSON_GetObjectItem(root, "event");
     if (cJSON_IsString(event) && strcmp(event->valuestring, "connect.challenge") == 0) {
         ESP_LOGI(TAG, "Received connect challenge, sending authentication request...");
@@ -149,38 +157,69 @@ void OpenClawClient::HandleMessage(const char* data, size_t len, bool binary) {
                strcmp(cJSON_GetObjectItem(root, "type")->valuestring, "res") == 0) {
         auto ok = cJSON_GetObjectItem(root, "ok");
         if (cJSON_IsBool(ok) && ok->valueint) {
-            auto payload = cJSON_GetObjectItem(root, "payload");
-            if (payload) {
-                auto type = cJSON_GetObjectItem(payload, "type");
-                if (cJSON_IsString(type) && strcmp(type->valuestring, "hello-ok") == 0) {
-                    ESP_LOGI(TAG, "Connection authenticated successfully!");
+                auto payload = cJSON_GetObjectItem(root, "payload");
+                if (payload) {
+                    auto type = cJSON_GetObjectItem(payload, "type");
+                    if (cJSON_IsString(type) && strcmp(type->valuestring, "hello-ok") == 0) {
+                        ESP_LOGI(TAG, "Connection authenticated successfully!");
 
-                    auto snapshot = cJSON_GetObjectItem(payload, "snapshot");
-                    if (snapshot) {
-                        auto sessions = cJSON_GetObjectItem(snapshot, "sessions");
-                        if (sessions) {
-                            auto recent = cJSON_GetObjectItem(sessions, "recent");
-                            if (cJSON_IsArray(recent) && cJSON_GetArraySize(recent) > 0) {
-                                auto first_session = cJSON_GetArrayItem(recent, 0);
-                                auto key = cJSON_GetObjectItem(first_session, "key");
-                                if (cJSON_IsString(key)) {
-                                    session_key_ = key->valuestring;
-                                    ESP_LOGI(TAG, "Bound to existing session: %s", session_key_.c_str());
+                        auto snapshot = cJSON_GetObjectItem(payload, "snapshot");
+                        if (snapshot) {
+                            ESP_LOGI(TAG, "Snapshot found: %s", cJSON_PrintUnformatted(snapshot));
+                            auto sessions = cJSON_GetObjectItem(snapshot, "sessions");
+                            if (sessions) {
+                                ESP_LOGI(TAG, "Sessions found: %s", cJSON_PrintUnformatted(sessions));
+                                auto recent = cJSON_GetObjectItem(sessions, "recent");
+                                if (cJSON_IsArray(recent)) {
+                                    ESP_LOGI(TAG, "Recent sessions found, count: %d", cJSON_GetArraySize(recent));
+                                    if (cJSON_GetArraySize(recent) > 0) {
+                                        auto first_session = cJSON_GetArrayItem(recent, 0);
+                                        ESP_LOGI(TAG, "First session: %s", cJSON_PrintUnformatted(first_session));
+                                        auto key = cJSON_GetObjectItem(first_session, "key");
+                                        if (cJSON_IsString(key)) {
+                                            session_key_ = key->valuestring;
+                                            ESP_LOGI(TAG, "Bound to existing session: %s", session_key_.c_str());
 
-                                    // Send test messages after 1 second
-                                    xTaskCreate([](void* arg) {
-                                        OpenClawClient* client = static_cast<OpenClawClient*>(arg);
-                                        vTaskDelay(pdMS_TO_TICKS(1000));
-                                        client->SendTestMessages();
-                                        vTaskDelete(nullptr);
-                                    }, "send_test_messages", 4096, this, 5, nullptr);
+                                            // Send test messages after 1 second
+                                            xTaskCreate([](void* arg) {
+                                                OpenClawClient* client = static_cast<OpenClawClient*>(arg);
+                                                vTaskDelay(pdMS_TO_TICKS(1000));
+                                                client->SendTestMessages();
+                                                vTaskDelete(nullptr);
+                                            }, "send_test_messages", 4096, this, 5, nullptr);
+                                        } else {
+                                            ESP_LOGE(TAG, "Session key not found in first session");
+                                        }
+                                    } else {
+                                        ESP_LOGE(TAG, "No recent sessions found");
+                                    }
+                                } else {
+                                    ESP_LOGE(TAG, "Recent sessions not found or not an array");
                                 }
+                            } else {
+                                ESP_LOGE(TAG, "Sessions not found in snapshot");
                             }
+                        } else {
+                            ESP_LOGE(TAG, "Snapshot not found in payload");
+                        }
+                    } else if (cJSON_IsString(type) && strcmp(type->valuestring, "session.create-ok") == 0) {
+                        // Handle session create response
+                        ESP_LOGI(TAG, "Session created successfully!");
+                        auto session = cJSON_GetObjectItem(payload, "session");
+                        if (session) {
+                            auto key = cJSON_GetObjectItem(session, "key");
+                            if (cJSON_IsString(key)) {
+                                session_key_ = key->valuestring;
+                                ESP_LOGI(TAG, "Created new session: %s", session_key_.c_str());
+                            } else {
+                                ESP_LOGE(TAG, "Session key not found in session.create-ok response");
+                            }
+                        } else {
+                            ESP_LOGE(TAG, "Session not found in session.create-ok response");
                         }
                     }
                 }
             }
-        }
     } else if (cJSON_IsString(cJSON_GetObjectItem(root, "type")) &&
                strcmp(cJSON_GetObjectItem(root, "type")->valuestring, "event") == 0) {
         auto event_type = cJSON_GetObjectItem(root, "event");
@@ -277,4 +316,43 @@ void OpenClawClient::SendTestMessages() {
         SendMessage(msg_text);
         vTaskDelay(pdMS_TO_TICKS(500)); // Small delay to prevent message堆积
     }
+}
+
+bool OpenClawClient::CreateSession() {
+    if (!IsConnected()) {
+        ESP_LOGE(TAG, "Not connected to OpenClaw server");
+        return false;
+    }
+
+    cJSON* root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "type", "req");
+    cJSON_AddStringToObject(root, "id", GenerateId().c_str());
+    cJSON_AddStringToObject(root, "method", "session.create");
+
+    cJSON* params = cJSON_CreateObject();
+    cJSON_AddStringToObject(params, "name", "ESP32 Session");
+    cJSON_AddStringToObject(params, "description", "Session created from ESP32 device");
+    cJSON_AddItemToObject(root, "params", params);
+
+    auto json_str = cJSON_PrintUnformatted(root);
+    std::string json_message(json_str);
+    cJSON_free(json_str);
+    cJSON_Delete(root);
+
+    ESP_LOGI(TAG, "Creating new session: %s", json_message.c_str());
+    if (!websocket_->Send(json_message)) {
+        ESP_LOGE(TAG, "Failed to send session.create request");
+        return false;
+    }
+
+    // Wait for session creation response
+    // Note: This is a simplified implementation, in a real application you would use a callback or event
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    if (session_key_.empty()) {
+        ESP_LOGE(TAG, "Session creation failed: no session key received");
+        return false;
+    }
+
+    return true;
 }

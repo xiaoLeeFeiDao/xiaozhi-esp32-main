@@ -27,15 +27,14 @@ private:
     std::string token_;
     std::string session_key_;
     bool connected_;
-
     std::function<void()> on_connected_;
     std::function<void(const std::string& message)> on_message_received_;
     std::function<void(const std::string& error)> on_error_;
-
     std::string GenerateId();
     void HandleMessage(const char* data, size_t len, bool binary);
     void SendConnectRequest();
     void SendTestMessages();
+    bool CreateSession();
 };
 
 #endif // OPENCLAW_CLIENT_H
