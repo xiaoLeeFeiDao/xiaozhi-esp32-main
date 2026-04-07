@@ -5,11 +5,13 @@
 #include "audio_codec.h"
 #include "mqtt_protocol.h"
 #include "websocket_protocol.h"
+#include "prize_websocket.h"
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
 #include "settings.h"
 #include "openclaw_client.h"
+#include "sdkconfig.h"
 
 #include <cstring>
 #include <esp_log.h>
@@ -502,6 +504,10 @@ void Application::InitializeProtocol() {
 
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
+#ifdef CONFIG_PRIZE_SERVER_ENABLED
+    ESP_LOGI(TAG, "Using Prize WebSocket protocol");
+    protocol_ = std::make_unique<PrizeWebsocket>();
+#else
     if (ota_->HasMqttConfig()) {
         protocol_ = std::make_unique<MqttProtocol>();
     } else if (ota_->HasWebsocketConfig()) {
@@ -510,6 +516,7 @@ void Application::InitializeProtocol() {
         ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
         protocol_ = std::make_unique<MqttProtocol>();
     }
+#endif
 
     protocol_->OnConnected([this]() {
         DismissAlert();

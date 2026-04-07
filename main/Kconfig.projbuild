@@ -6,6 +6,87 @@ config OTA_URL
     help
         The application will access this URL to check for new firmwares and server address.
 
+menu "Prize Server Configuration"
+    config PRIZE_SERVER_ENABLED
+        bool "Enable Prize Server Connection"
+        default n
+        help
+            Enable connection to Prize server for ASR/TTS/STT
+
+    config PRIZE_WEBSOCKET_ADDR
+        string "WebSocket Server Address"
+        depends on PRIZE_SERVER_ENABLED
+        default "rbt-tnet.coosealab.com"
+        help
+            WebSocket server address for ASR/TTS/STT service
+
+    config PRIZE_WEBSOCKET_PORT
+        string "WebSocket Server Port"
+        depends on PRIZE_SERVER_ENABLED
+        default "443"
+        help
+            WebSocket server port
+
+    config PRIZE_WEBSOCKET_PATH
+        string "WebSocket Server Path"
+        depends on PRIZE_SERVER_ENABLED
+        default "/talknet/ws/v1"
+        help
+            WebSocket server path
+
+    config PRIZE_THIRD_PARTY_ENABLED
+        bool "Enable Third Party Service (Migu/Ximalaya)"
+        depends on PRIZE_SERVER_ENABLED
+        default n
+        help
+            Enable third party music and audio book service
+
+    config PRIZE_THIRD_PARTY_DOMAIN
+        string "Third Party Server Domain"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "device.ai.suqi.tech"
+
+    config PRIZE_MQTT_USERNAME
+        string "MQTT Username"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "kusai"
+
+    config PRIZE_MQTT_PASSWORD
+        string "MQTT Password"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "cue2ntB7qgb"
+
+    config PRIZE_APP_LICENSE_ID
+        string "App License ID"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "2011005376785983125"
+
+    config PRIZE_APP_KEY
+        string "App Key"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "da1f743f22794b37ad24dbc2853d5e52"
+
+    config PRIZE_SERVER_TOKEN
+        string "Server Token"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "60bb51512fad4117b68511540c306035"
+
+    config PRIZE_SERVICE_PACKAGE_CODE
+        string "Service Package Code"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "kusai"
+
+    config PRIZE_REGION_CODE
+        string "Region Code"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "cn-shanghai"
+
+    config PRIZE_PLAYURL_AES_KEY
+        string "Play URL AES Key"
+        depends on PRIZE_THIRD_PARTY_ENABLED
+        default "R3ApCPshhj23Z5NC"
+endmenu
+
 choice
     prompt "Flash Assets"
     default FLASH_DEFAULT_ASSETS if !USE_EMOTE_MESSAGE_STYLE
